@@ -5,6 +5,13 @@
 
 typedef	struct	_SVT_CONTROL	SVT_CONTROL;
 typedef	struct	_EIT_CONTROL	EIT_CONTROL;
+typedef	struct	_EIT_EXTENDED_DESCRIPTION	EIT_EXTENDED_DESCRIPTION;
+
+/** Extended event descriptor (EIT tag 0x4E) item. */
+struct	_EIT_EXTENDED_DESCRIPTION{
+	char	*item_description;
+	char	*item;
+};
 
 struct	_SVT_CONTROL{
 	SVT_CONTROL	*next ;
@@ -26,6 +33,8 @@ struct	_EIT_CONTROL{
 	int		content_type ;		// コンテントタイプ
 	char	*title ;			// タイトル
 	char	*subtitle ;			// サブタイトル
+	int	extended_description_count;
+	EIT_EXTENDED_DESCRIPTION	*extended_descriptions;
 	int	duration;				// 時間
 	time_t	start_time;			// 開始時刻
 };

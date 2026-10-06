@@ -206,6 +206,49 @@ int checkEEVTDitem(EEVTDitem *save, EEVTDitem *new, int descriptor_number) {
 	return 1;
 }
 
+/**
+ * Store one decoded extended-event item on its programme.
+ * The descriptor can contain several items, so preserve their original order.
+ */
+static void add_extended_description(EIT_CONTROL *eit, const EEVTDitem *item)
+{
+	EIT_EXTENDED_DESCRIPTION *descriptions;
+	EIT_EXTENDED_DESCRIPTION *description;
+	int i;
+
+	if (eit == NULL || item == NULL ||
+			(item->item_description_length == 0 && item->item_length == 0)) {
+		return;
+	}
+	/* 同じEITイベントは送出周期ごとに繰り返し受信するため、同一項目は1件だけ保持する。 */
+	for (i = 0; i < eit->extended_description_count; i++) {
+		if (strcmp(eit->extended_descriptions[i].item_description, item->item_description) == 0
+				&& strcmp(eit->extended_descriptions[i].item, item->item) == 0) {
+			return;
+		}
+	}
+
+	descriptions = realloc(eit->extended_descriptions,
+						 sizeof(EIT_EXTENDED_DESCRIPTION) * (eit->extended_description_count + 1));
+	if (descriptions == NULL) {
+		return;
+	}
+	eit->extended_descriptions = descriptions;
+	description = &eit->extended_descriptions[eit->extended_description_count];
+	description->item_description = calloc(1, strlen(item->item_description) + 1);
+	description->item = calloc(1, strlen(item->item) + 1);
+	if (description->item_description == NULL || description->item == NULL) {
+		free(description->item_description);
+		free(description->item);
+		description->item_description = NULL;
+		description->item = NULL;
+		return;
+	}
+	strcpy(description->item_description, item->item_description);
+	strcpy(description->item, item->item);
+	eit->extended_description_count++;
+}
+
 EIT_CONTROL	*search_eit(EIT_CONTROL *top, int event_id)
 {
 	EIT_CONTROL	*cur = top ;
@@ -434,14 +477,7 @@ void dumpEIT(unsigned char *ptr, SVT_CONTROL *top)
 
 							if(checkEEVTDitem(&save_eevtitem, &eevtitem, 
 											  eevthead.descriptor_number)) {
-#if 0
-								fprintf(out, "EEVT,%d,%d,%d,%s,%s\n", 
-										eith.service_id,
-										eitb.event_id,
-										eevtitem.descriptor_number, /* 退避項目 */
-										eevtitem.item_description,
-										eevtitem.item);
-#endif
+								add_extended_description(cur, &eevtitem);
 							}
 						}
 
@@ -510,17 +546,9 @@ void dumpEIT(unsigned char *ptr, SVT_CONTROL *top)
 		}
 		/* 最後のブレークチェック */
 		if(checkEEVTDitem(&save_eevtitem, NULL, 0)) {
-#if 0
-			fprintf(out, "EEVT,%d,%d,%d,%s,%s\n", 
-					eith.service_id,
-					eitb.event_id,
-					save_eevtitem.descriptor_number,
-					save_eevtitem.item_description,
-					save_eevtitem.item);
-#endif
+			add_extended_description(cur, &save_eevtitem);
 		}
 	}
 
 	return ;
 }
-

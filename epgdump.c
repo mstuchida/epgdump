@@ -32,6 +32,39 @@ void	xmlspecialchars(char *str)
 	strrep(str, ">", "&gt;");
 }
 
+/** Print XML character data without changing the source EIT strings. */
+static void print_xml_escaped(FILE *outfile, const char *text)
+{
+	const unsigned char *current = (const unsigned char *)text;
+
+	if (current == NULL) {
+		return;
+	}
+	while (*current != '\0') {
+		switch (*current) {
+			case '&':
+				fputs("&amp;", outfile);
+				break;
+			case '\'':
+				fputs("&apos;", outfile);
+				break;
+			case '\"':
+				fputs("&quot;", outfile);
+				break;
+			case '<':
+				fputs("&lt;", outfile);
+				break;
+			case '>':
+				fputs("&gt;", outfile);
+				break;
+			default:
+				fputc(*current, outfile);
+				break;
+		}
+		current++;
+	}
+}
+
 void	GetEITSDTInfo(FILE *infile, SECcache *secs, int count)
 {
 	SECcache  *bsecs;
@@ -129,6 +162,18 @@ void	dumpXML(FILE *outfile, char *header)
 			fprintf(outfile, "    <desc lang=\"ja_JP\">%s</desc>\n", subtitle);
 			fprintf(outfile, "    <category lang=\"ja_JP\">%s</category>\n", Category);
 			fprintf(outfile, "    <category lang=\"en\">%s</category>\n", ContentCatList[eitcur->content_type].english);
+			if (eitcur->extended_description_count > 0) {
+				fprintf(outfile, "    <extdesc>\n");
+				for (int i = 0; i < eitcur->extended_description_count; i++) {
+					fprintf(outfile, "      <item_description>");
+					print_xml_escaped(outfile, eitcur->extended_descriptions[i].item_description);
+					fprintf(outfile, "</item_description>\n");
+					fprintf(outfile, "      <item>");
+					print_xml_escaped(outfile, eitcur->extended_descriptions[i].item);
+					fprintf(outfile, "</item>\n");
+				}
+				fprintf(outfile, "    </extdesc>\n");
+			}
 			fprintf(outfile, "  </programme>\n");
 			eitcur = eitcur->next;
 		}
