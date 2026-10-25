@@ -93,6 +93,14 @@ void	GetEITSDTInfo(FILE *infile, SECcache *secs, int count)
 	}
 }
 
+/* ARIB TR-B14 9.1.3: terrestrial SID bits 8..7 == 3 identify partial reception.
+ * Use the SID rather than names/SDT arrival order; keep satellite services. */
+static int is_one_seg(const SVT_CONTROL *service)
+{
+	return service->original_network_id >= 0x10
+		&& (service->service_id & 0x0180) == 0x0180;
+}
+
 void	dumpXML(FILE *outfile, char *header)
 {
 	SVT_CONTROL	*svtcur ;
@@ -106,6 +114,10 @@ void	dumpXML(FILE *outfile, char *header)
 
 	svtcur = svttop->next;
 	while(svtcur != NULL) {
+		if (is_one_seg(svtcur)) {
+			svtcur = svtcur->next;
+			continue;
+		}
 		memset(ServiceName, '\0', sizeof(ServiceName));
 		strcpy(ServiceName, svtcur->service_name);
 		xmlspecialchars(ServiceName);
@@ -121,6 +133,10 @@ void	dumpXML(FILE *outfile, char *header)
 
 	svtcur = svttop->next;
 	while(svtcur != NULL) {
+		if (is_one_seg(svtcur)) {
+			svtcur = svtcur->next;
+			continue;
+		}
 		eitcur = svtcur->eit;
 		while(eitcur != NULL){
 			if(!eitcur->service_id || eitcur->time_unknown || !eitcur->title || !eitcur->title[0]){
