@@ -106,10 +106,6 @@ void	dumpXML(FILE *outfile, char *header)
 
 	svtcur = svttop->next;
 	while(svtcur != NULL) {
-		if (!svtcur->haveeitschedule) {
-			svtcur = svtcur->next;
-			continue;
-		}
 		memset(ServiceName, '\0', sizeof(ServiceName));
 		strcpy(ServiceName, svtcur->service_name);
 		xmlspecialchars(ServiceName);
@@ -125,17 +121,13 @@ void	dumpXML(FILE *outfile, char *header)
 
 	svtcur = svttop->next;
 	while(svtcur != NULL) {
-		if (!svtcur->haveeitschedule) {
-			svtcur = svtcur->next;
-			continue;
-		}
 		eitcur = svtcur->eit;
 		while(eitcur != NULL){
-			if(!eitcur->service_id){
+			if(!eitcur->service_id || eitcur->time_unknown || !eitcur->title || !eitcur->title[0]){
 				eitcur = eitcur->next ;
 				continue ;
 			}
-			if(eitcur->content_type > CAT_COUNT){
+			if(eitcur->content_type >= CAT_COUNT){
 				eitcur->content_type = CAT_COUNT -1 ;
 			}
 

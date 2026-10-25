@@ -28,6 +28,8 @@ struct	_EIT_CONTROL{
 	EIT_CONTROL	*next ;
 	EIT_CONTROL	*prev ;
 	int		table_id ;
+	int version_number;
+	int time_unknown;
 	int		service_id ;
 	int		event_id ;			// イベントID
 	int		content_type ;		// コンテントタイプ

@@ -48,7 +48,7 @@ int getBit(unsigned char *byte, int *pbit, int gbit) {
 	tbuf[0] = tbuf[0] >> cutbit;
 
 	/* intにしてしまう */
-	tnum = tbuf[0] << 24 | tbuf[1] << 16 | tbuf[2] << 8 | tbuf[3];
+	tnum = (unsigned int)tbuf[0] << 24 | (unsigned int)tbuf[1] << 16 | (unsigned int)tbuf[2] << 8 | tbuf[3];
 
 	/* 後ろの不要バイトをカット */
 	tnum = tnum >> lcutbit;

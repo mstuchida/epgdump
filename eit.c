@@ -251,7 +251,7 @@ static void add_extended_description(EIT_CONTROL *eit, const EEVTDitem *item)
 
 EIT_CONTROL	*search_eit(EIT_CONTROL *top, int event_id)
 {
-	EIT_CONTROL	*cur = top ;
+	EIT_CONTROL	*cur = top->next ;
 	while(cur != NULL){
 		if(cur->event_id == event_id){
 			return cur ;
@@ -331,12 +331,6 @@ void	enqueue_eit(EIT_CONTROL *top, EIT_CONTROL *eitptr)
 	cur = top->next ;
 	while(cur != NULL){
 		rc = cur->start_time - eitptr->start_time;
-		if(rc == 0){
-			free(eitptr->title);
-			free(eitptr->subtitle);
-			free(eitptr);
-			return ;
-		}
 		if(rc > 0){
 			if(cur->prev != 0){
 				cur->prev->next = eitptr;
@@ -362,6 +356,29 @@ void	enqueue_eit(EIT_CONTROL *top, EIT_CONTROL *eitptr)
 
 }
 
+static int eit_priority(int table_id) {
+    if (table_id == 0x4e) return 3;
+    if (table_id == 0x4f) return 2;
+    return table_id < 0x60 ? 1 : 0;
+}
+
+static int accept_times(EIT_CONTROL *cur, EIThead *h) {
+    int old_priority = eit_priority(cur->table_id), priority = eit_priority(h->table_id);
+    if (priority != old_priority) return priority > old_priority;
+    if (cur->table_id != h->table_id) return 1;
+    return ((h->version_number - cur->version_number + 32) & 31) <= 16;
+}
+
+static int unknown_time(EITbody *b) {
+    if (b->start_time[0] == 255 && b->start_time[1] == 255) return 1;
+    for (int i = 2; i < 5; ++i)
+        if ((b->start_time[i] >> 4) > 9 || (b->start_time[i] & 15) > 9) return 1;
+    for (int i = 0; i < 3; ++i)
+        if ((b->duration[i] >> 4) > 9 || (b->duration[i] & 15) > 9) return 1;
+    return b->start_time[2] > 0x23 || b->start_time[3] > 0x59 || b->start_time[4] > 0x59
+        || b->duration[1] > 0x59 || b->duration[2] > 0x59;
+}
+
 void dumpEIT(unsigned char *ptr, SVT_CONTROL *top)
 {
 	EIThead  eith;
@@ -384,7 +401,9 @@ void dumpEIT(unsigned char *ptr, SVT_CONTROL *top)
 	int loop_elen = 0;
 
 	/* EIT */
-	len = parseEIThead(ptr, &eith); 
+	len = parseEIThead(ptr, &eith);
+    if (!eith.current_next_indicator || eith.section_length < 15 || eith.section_length > 4093
+        || eith.table_id < 0x4e || eith.table_id > 0x6f) return;
 	// EIT ヘッダから、どのSVTのEIT情報か特定する
 	svtcur=top->next;
 	eittop = NULL;
@@ -417,6 +436,7 @@ void dumpEIT(unsigned char *ptr, SVT_CONTROL *top)
 	ptr += len;
 	loop_len = eith.section_length - (len - 3 + 4); // 3は共通ヘッダ長 4はCRC
 	while(loop_len > 0) {
+        if (loop_len < 12) return;
 		/* 連続する拡張イベントは、漢字コードが泣き別れして
 		   分割されるようだ。連続かどうかは、item_description_lengthが
 		   設定されているかどうかで判断できるようだ。 */
@@ -426,7 +446,25 @@ void dumpEIT(unsigned char *ptr, SVT_CONTROL *top)
 #if 0
 		printf("evtid:%d\n", eitb.event_id);
 #endif
+        if (eitb.descriptors_loop_length > loop_len - 12) return;
 		cur = search_eit(eittop, eitb.event_id);
+        int update = cur == NULL || accept_times(cur, &eith);
+        if (cur == NULL) {
+            cur = calloc(1, sizeof(EIT_CONTROL));
+            cur->event_id = eitb.event_id; cur->service_id = eith.service_id;
+            cur->title = calloc(1, 1); cur->subtitle = calloc(1, 1);
+            cur->start_time = unknown_time(&eitb) ? 0 : getStartTime(eitb.start_time);
+            enqueue_eit(eittop, cur);
+        }
+        if (update) {
+            cur->table_id = eith.table_id; cur->version_number = eith.version_number;
+            cur->time_unknown = unknown_time(&eitb);
+            if (!cur->time_unknown) {
+                cur->duration = getDurationSec(eitb.duration);
+                cur->start_time = getStartTime(eitb.start_time);
+            }
+        }
+        if (eith.table_id >= 0x50) svtcur->haveeitschedule = 1;
 
 		ptr += len;
 		loop_len -= len;
@@ -434,6 +472,7 @@ void dumpEIT(unsigned char *ptr, SVT_CONTROL *top)
 		loop_blen = eitb.descriptors_loop_length;
 		loop_len -= loop_blen;
 		while(loop_blen > 0) {
+            if (loop_blen < 2 || ptr[1] + 2 > loop_blen) return;
 			unsigned char desctag;
 			int sboff = 0;
 			ContentDesc contentDesc;
@@ -443,21 +482,13 @@ void dumpEIT(unsigned char *ptr, SVT_CONTROL *top)
 				case 0x4D:
 					len = parseSEVTdesc(ptr, &sevtd);
 					if(len > 0) {
-						if(cur == NULL){
-							cur = calloc(1, sizeof(EIT_CONTROL));
-							cur->event_id = eitb.event_id ;
-							cur->service_id = eith.service_id ;
-							cur->title = calloc(1, (strlen(sevtd.event_name) + 1));
-							memcpy(cur->title, sevtd.event_name, strlen(sevtd.event_name));
-							cur->subtitle = calloc(1, (strlen(sevtd.text) + 1));
-							memcpy(cur->subtitle, sevtd.text, strlen(sevtd.text));
-							cur->table_id = eith.table_id ;
-							cur->duration = getDurationSec(eitb.duration);
-							cur->start_time = getStartTime(eitb.start_time);
-							enqueue_eit(eittop, cur);
-							if ((eith.table_id >= 0x50) && (!svtcur->haveeitschedule))
-								svtcur->haveeitschedule=1;
-						}
+                        if (update || cur->title[0] == '\0') {
+                            free(cur->title); free(cur->subtitle);
+                            cur->title = calloc(1, strlen(sevtd.event_name) + 1);
+                            strcpy(cur->title, sevtd.event_name);
+                            cur->subtitle = calloc(1, strlen(sevtd.text) + 1);
+                            strcpy(cur->subtitle, sevtd.text);
+                        }
 					}
 					break;
 				case 0x4E:
@@ -467,7 +498,6 @@ void dumpEIT(unsigned char *ptr, SVT_CONTROL *top)
 						loop_blen -= len;
 
 						loop_elen = eevthead.length_of_items;
-						loop_len -= loop_elen;
 						while(loop_elen > 0) {
 							len = parseEEVTDitem(ptr, &eevtitem);
 
