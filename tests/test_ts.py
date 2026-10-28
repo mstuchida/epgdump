@@ -35,13 +35,43 @@ def section(table,version,event,hour,duration=1,unknown=False,current=True,sid=0
     data[1]|=length>>8; data[2]=length&255
     return data+struct.pack('>I',crc(data))
 
-def packet(data,cc):
-    p=bytes([0x47,0x40,0x12,0x10|(cc&15),0])+data
+def packet(data,cc,pid=0x12):
+    p=bytes([0x47,0x40|(pid>>8),pid&255,0x10|(cc&15),0])+data
     assert len(p)<=188
     return p+b'\xff'*(188-len(p))
 
+def sdt(tsid,current=True,table=0x42):
+    name=b'\x0eCURRENT' if current else b'\x0eFUTURE'
+    descriptor=bytes([0x48,3+len(name),1,0,len(name)])+name
+    data=bytearray([table,0xf0,0,tsid>>8,tsid&255,0xc0|int(current),0,0,0,4,0xff])
+    data+=bytes([0,101,0xfc,0x80|(len(descriptor)>>8),len(descriptor)&255])+descriptor
+    length=len(data)+1
+    data[1]|=length>>8;data[2]=length&255
+    return data+struct.pack('>I',crc(data))
+
 with tempfile.TemporaryDirectory(prefix='epgdump-ts-test-') as name:
     root=Path(name)
+    for table in (0x42,0x46):
+        for case,sections in {
+            'current-only':[sdt(16625,table=table)],
+            'next-only':[sdt(18675,current=False,table=table)],
+            'next-before-current':[sdt(18675,current=False,table=table),sdt(16625,table=table)],
+            'next-after-current':[sdt(16625,table=table),sdt(18675,current=False,table=table)],
+        }.items():
+            source=root/'sdt.ts';out=root/'sdt.xml'
+            source.write_bytes(b''.join(packet(s,n,pid=0x11) for n,s in enumerate(sections))
+                               +b'\x47\x1f\xff\x10'+b'\xff'*184)
+            result=subprocess.run([sys.argv[1],'/BS',str(source),str(out)],
+                                  env=dict(os.environ,TZ='Asia/Tokyo',ASAN_OPTIONS='detect_leaks=0'),
+                                  capture_output=True,timeout=5)
+            assert result.returncode==0,(case,result.stderr)
+            channels=ET.parse(out).getroot().findall('channel')
+            if case=='next-only':assert not channels,out.read_text()
+            else:
+                assert len(channels)==1,out.read_text()
+                assert channels[0].findtext('transport_stream_id')=='16625',out.read_text()
+                assert channels[0].findtext('display-name')=='ＣＵＲＲＥＮＴ',out.read_text()
+            print('PASS epgdump SDT current_next:',hex(table),case)
     cases={
         'pf-only':[section(0x4e,0,0,22)],
         'schedule-before-pf':[section(0x50,0,7,21),section(0x4e,0,7,22,2)],

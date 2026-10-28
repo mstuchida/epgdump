@@ -115,6 +115,8 @@ void dumpSDT(unsigned char *ptr, SVT_CONTROL *top)
 
 	/* SDT */
 	len = parseSDThead(ptr, &sdth); 
+	if (!sdth.current_next_indicator)
+		return;
 	ptr += len;
 	loop_len = sdth.section_length - (len - 3 + 4); // 3は共通ヘッダ長 4はCRC
 	while(loop_len > 0) {
