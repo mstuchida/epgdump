@@ -20,7 +20,7 @@ char	subtitle[1024];
 char	Category[1024];
 char	ServiceName[1024];
 
-/* prototype */
+/* 関数プロトタイプ宣言 */
 extern int strrep(char *buf, char *mae, char *ato);
 
 void	xmlspecialchars(char *str)
@@ -32,7 +32,7 @@ void	xmlspecialchars(char *str)
 	strrep(str, ">", "&gt;");
 }
 
-/** Print XML character data without changing the source EIT strings. */
+/** 元のEIT文字列を変更せず、XMLの文字データとして出力する。 */
 static void print_xml_escaped(FILE *outfile, const char *text)
 {
 	const unsigned char *current = (const unsigned char *)text;
@@ -93,8 +93,8 @@ void	GetEITSDTInfo(FILE *infile, SECcache *secs, int count)
 	}
 }
 
-/* ARIB TR-B14 9.1.3: terrestrial SID bits 8..7 == 3 identify partial reception.
- * Use the SID rather than names/SDT arrival order; keep satellite services. */
+/* ARIB TR-B14 9.1.3: 地上波SIDのビット8..7が3なら部分受信サービス（ワンセグ）。
+ * 名前やSDTの到着順ではなくSIDで判定し、衛星放送のサービスは保持する。 */
 static int is_one_seg(const SVT_CONTROL *service)
 {
 	return service->original_network_id >= 0x10

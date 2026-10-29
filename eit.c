@@ -207,8 +207,8 @@ int checkEEVTDitem(EEVTDitem *save, EEVTDitem *new, int descriptor_number) {
 }
 
 /**
- * Store one decoded extended-event item on its programme.
- * The descriptor can contain several items, so preserve their original order.
+ * 復号済みの拡張イベント項目を、対応する番組に保存する。
+ * 記述子には複数の項目が含まれるため、元の順序を維持する。
  */
 static void add_extended_description(EIT_CONTROL *eit, const EEVTDitem *item)
 {

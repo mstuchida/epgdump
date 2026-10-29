@@ -32,8 +32,8 @@ int main(void) {
     event(0x4e,1,7,0x23,3,1,1);assert(p->time_unknown);xml_contains(7,0);
     event(0x50,3,7,0x21,1,1,0);assert(p->time_unknown);
     event(0x4e,2,7,0x22,2,1,0);assert(!p->time_unknown);xml_contains(7,1);
-    event(0x4e,2,0,0x22,2,1,0);assert(find(0) && find(0)!=p); // event_id=0 is valid
-    event(0x4e,2,8,0x22,2,1,0);assert(find(8)); // replacement at identical start
+    event(0x4e,2,0,0x22,2,1,0);assert(find(0) && find(0)!=p); // event_id=0も有効。
+    event(0x4e,2,8,0x22,2,1,0);assert(find(8)); // 同じ開始時刻での番組差し替え。
     event(0x4e,2,9,0x22,2,1,0);EIT_CONTROL *pf=find(9);free(pf->title);pf->title=strdup("pf-only");
     svttop->next->haveeitschedule=0;xml_contains(9,1);
     puts("PASS EIT: p/f priority, schedule order, version wrap, stale versions, current_next, unknown time, event 0, replacement, p/f-only XML");

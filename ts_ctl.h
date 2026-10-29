@@ -7,7 +7,7 @@ typedef	struct	_SVT_CONTROL	SVT_CONTROL;
 typedef	struct	_EIT_CONTROL	EIT_CONTROL;
 typedef	struct	_EIT_EXTENDED_DESCRIPTION	EIT_EXTENDED_DESCRIPTION;
 
-/** Extended event descriptor (EIT tag 0x4E) item. */
+/** 拡張イベント記述子（EITタグ0x4E）の項目。 */
 struct	_EIT_EXTENDED_DESCRIPTION{
 	char	*item_description;
 	char	*item;
@@ -16,9 +16,9 @@ struct	_EIT_EXTENDED_DESCRIPTION{
 struct	_SVT_CONTROL{
 	SVT_CONTROL	*next ;
 	SVT_CONTROL	*prev ;
-	int		original_network_id ;		// OriginalNetworkID
-	int		transport_stream_id ;		// TransporrtStreamID
-	int		service_id ;				// ServiceID
+	int		original_network_id ;		// オリジナルネットワークID
+	int		transport_stream_id ;		// トランスポートストリームID
+	int		service_id ;				// サービスID
 	char	service_name[MAXSECLEN] ;	// サービス名
 	EIT_CONTROL	*eit;					// EIT テーブル
 	char	haveeitschedule;			// EITスケジュールがあるか。

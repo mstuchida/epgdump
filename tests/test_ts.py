@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the actual epgdump command on CRC-valid TS, without tuners."""
+"""CRCが有効なTSで実際のepgdumpコマンドを実行する。チューナーは使わない。"""
 import datetime
 import os
 from pathlib import Path
@@ -92,8 +92,8 @@ with tempfile.TemporaryDirectory(prefix='epgdump-ts-test-') as name:
         if case=='pf-only': assert values[0].get('event_id')=='0'
         print('PASS epgdump TS:',case)
 
-    # No SDT: EIT-created services must also be filtered. Both EIT orders and
-    # p/f-only data are covered; ordinary subchannels and satellite SIDs survive.
+    # SDTがない場合、EITから作成したサービスもフィルター対象にする。EITの受信順が異なる場合と
+    # p/fだけの場合も検証し、通常のサブチャンネルと衛星放送のSIDが保持されることを確認する。
     for reverse in (False, True):
         for table in (0x4e, 0x50):
             services=[(1024,0x7fe0),(1025,0x7fe0),(1408,0x7fe0),
